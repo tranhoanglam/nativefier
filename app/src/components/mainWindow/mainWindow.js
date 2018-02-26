@@ -212,6 +212,11 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
   mainWindow.loadURL(options.targetUrl);
 
   mainWindow.on('close', (event) => {
+    //Save cookie on exit
+    const {session} = require('electron')
+    session.defaultSession.cookies.flushStore(() => {
+      console.log("Saved cookie")
+    })
     if (mainWindow.isFullScreen()) {
       mainWindow.setFullScreen(false);
       mainWindow.once('leave-full-screen', maybeHideWindow.bind(this, mainWindow, event, options.fastQuit));
