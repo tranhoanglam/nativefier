@@ -2,13 +2,15 @@ import 'source-map-support/register';
 import fs from 'fs';
 import path from 'path';
 import { app, crashReporter } from 'electron';
-import electronDownload from 'electron-dl';
+//import electronDownload from 'electron-dl';
 
 import createLoginWindow from './components/login/loginWindow';
 import createMainWindow from './components/mainWindow/mainWindow';
 import createTrayIcon from './components/trayIcon/trayIcon';
 import helpers from './helpers/helpers';
 import inferFlash from './helpers/inferFlash';
+import electronDownload from './helpers/download';
+
 
 const { isOSX } = helpers;
 
