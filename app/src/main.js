@@ -145,6 +145,6 @@ if (appArgs.singleInstance) {
   });
 
   if (shouldQuit) {
-    app.quit();
+    app.exit();
   }
 }
