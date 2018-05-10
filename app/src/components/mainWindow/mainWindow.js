@@ -1,13 +1,17 @@
-import fs from 'fs';
-import path from 'path';
-import { BrowserWindow, shell, ipcMain, dialog } from 'electron';
-import windowStateKeeper from 'electron-window-state';
-import helpers from './../../helpers/helpers';
-import createMenu from './../menu/menu';
-import initContextMenu from './../contextMenu/contextMenu';
+import fs from "fs";
+import path from "path";
+import { BrowserWindow, shell, ipcMain, dialog, session } from "electron";
+import windowStateKeeper from "electron-window-state";
+import helpers from "./../../helpers/helpers";
+import createMenu from "./../menu/menu";
+import initContextMenu from "./../contextMenu/contextMenu";
 
 const {
-  isOSX, linkIsInternal, getCssToInject, shouldInjectCss, getAppIcon,
+  isOSX,
+  linkIsInternal,
+  getCssToInject,
+  shouldInjectCss,
+  getAppIcon
 } = helpers;
 
 const ZOOM_INTERVAL = 0.1;
@@ -35,19 +39,21 @@ function maybeInjectCss(browserWindow) {
     browserWindow.webContents.insertCSS(cssToInject);
   };
 
-  browserWindow.webContents.on('did-finish-load', () => {
+  browserWindow.webContents.on("did-finish-load", () => {
     // remove the injection of css the moment the page is loaded
-    browserWindow.webContents.removeListener('did-get-response-details', injectCss);
+    browserWindow.webContents.removeListener(
+      "did-get-response-details",
+      injectCss
+    );
   });
 
   // on every page navigation inject the css
-  browserWindow.webContents.on('did-navigate', () => {
+  browserWindow.webContents.on("did-navigate", () => {
     // we have to inject the css in did-get-response-details to prevent the fouc
     // will run multiple times
-    browserWindow.webContents.on('did-get-response-details', injectCss);
+    browserWindow.webContents.on("did-get-response-details", injectCss);
   });
 }
-
 
 /**
  *
@@ -60,7 +66,7 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
   const options = Object.assign({}, inpOptions);
   const mainWindowState = windowStateKeeper({
     defaultWidth: options.width || 1280,
-    defaultHeight: options.height || 800,
+    defaultHeight: options.height || 800
   });
 
   const mainWindow = new BrowserWindow({
@@ -82,28 +88,39 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
       // node globals causes problems with sites like messenger.com
       nodeIntegration: false,
       webSecurity: !options.insecure,
-      preload: path.join(__dirname, 'static', 'preload.js'),
-      zoomFactor: options.zoom,
+      preload: path.join(__dirname, "static", "preload.js"),
+      zoomFactor: options.zoom
     },
     // after webpack path here should reference `resources/app/`
     icon: getAppIcon(),
     // set to undefined and not false because explicitly setting to false will disable full screen
     fullscreen: options.fullScreen || undefined,
     // Whether the window should always stay on top of other windows. Default is false.
-    alwaysOnTop: options.alwaysOnTop,
+    alwaysOnTop: options.alwaysOnTop
   });
-
+  const macaddress = require("macaddress");
+  //Add Mac-address for all request
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    macaddress.one(function(err, macAddress) {
+      if (err) console.log("Cannot get mac address");
+      details.requestHeaders["Mac-address"] = macAddress;
+    });
+    callback({ cancel: false, requestHeaders: details.requestHeaders });
+  });
   mainWindowState.manage(mainWindow);
 
   // after first run, no longer force maximize to be true
   if (options.maximize) {
     mainWindow.maximize();
     options.maximize = undefined;
-    fs.writeFileSync(path.join(__dirname, '..', 'nativefier.json'), JSON.stringify(options));
+    fs.writeFileSync(
+      path.join(__dirname, "..", "nativefier.json"),
+      JSON.stringify(options)
+    );
   }
 
   const adjustWindowZoom = (window, adjustment) => {
-    window.webContents.getZoomFactor((zoomFactor) => {
+    window.webContents.getZoomFactor(zoomFactor => {
       window.webContents.setZoomFactor(zoomFactor + adjustment);
     });
   };
@@ -117,23 +134,28 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
   };
 
   const clearAppData = () => {
-    dialog.showMessageBox(mainWindow, {
-      type: 'warning',
-      buttons: ['Yes', 'Cancel'],
-      defaultId: 1,
-      title: 'Clear cache confirmation',
-      message: 'This will clear all data (cookies, local storage etc) from this app. Are you sure you wish to proceed?',
-    }, (response) => {
-      if (response !== 0) {
-        return;
-      }
-      const { session } = mainWindow.webContents;
-      session.clearStorageData(() => {
-        session.clearCache(() => {
-          mainWindow.loadURL(options.targetUrl);
+    dialog.showMessageBox(
+      mainWindow,
+      {
+        type: "warning",
+        buttons: ["Yes", "Cancel"],
+        defaultId: 1,
+        title: "Clear cache confirmation",
+        message:
+          "This will clear all data (cookies, local storage etc) from this app. Are you sure you wish to proceed?"
+      },
+      response => {
+        if (response !== 0) {
+          return;
+        }
+        const { session } = mainWindow.webContents;
+        session.clearStorageData(() => {
+          session.clearCache(() => {
+            mainWindow.loadURL(options.targetUrl);
+          });
         });
-      });
-    });
+      }
+    );
   };
 
   const onGoBack = () => {
@@ -157,7 +179,7 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
     goForward: onGoForward,
     getCurrentUrl,
     clearAppData,
-    disableDevTools: options.disableDevTools,
+    disableDevTools: options.disableDevTools
   };
 
   createMenu(menuOptions);
@@ -170,33 +192,33 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
   }
 
   maybeInjectCss(mainWindow);
-  mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.send('params', JSON.stringify(options));
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.send("params", JSON.stringify(options));
   });
 
   if (options.counter) {
-    mainWindow.on('page-title-updated', (e, title) => {
+    mainWindow.on("page-title-updated", (e, title) => {
       const itemCountRegex = /[([{](\d*?)\+?[}\])]/;
       const match = itemCountRegex.exec(title);
       if (match) {
         setDockBadge(match[1], options.bounce);
       } else {
-        setDockBadge('');
+        setDockBadge("");
       }
     });
   } else {
-    ipcMain.on('notification', () => {
+    ipcMain.on("notification", () => {
       if (!isOSX() || mainWindow.isFocused()) {
         return;
       }
-      setDockBadge('•', options.bounce);
+      setDockBadge("•", options.bounce);
     });
-    mainWindow.on('focus', () => {
-      setDockBadge('');
+    mainWindow.on("focus", () => {
+      setDockBadge("");
     });
   }
 
-  mainWindow.webContents.on('new-window', (event, urlToGo) => {
+  mainWindow.webContents.on("new-window", (event, urlToGo) => {
     if (mainWindow.useDefaultWindowBehaviour) {
       mainWindow.useDefaultWindowBehaviour = false;
       return;
@@ -211,15 +233,17 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
 
   mainWindow.loadURL(options.targetUrl);
 
-  mainWindow.on('close', (event) => {
+  mainWindow.on("close", event => {
     //Save cookie on exit
-    const {session} = require('electron')
     session.defaultSession.cookies.flushStore(() => {
-      console.log("Saved cookie")
-    })
+      console.log("Saved cookie");
+    });
     if (mainWindow.isFullScreen()) {
       mainWindow.setFullScreen(false);
-      mainWindow.once('leave-full-screen', maybeHideWindow.bind(this, mainWindow, event, options.fastQuit));
+      mainWindow.once(
+        "leave-full-screen",
+        maybeHideWindow.bind(this, mainWindow, event, options.fastQuit)
+      );
     }
     maybeHideWindow(mainWindow, event, options.fastQuit, options.tray);
   });
@@ -227,9 +251,9 @@ function createMainWindow(inpOptions, onAppQuit, setDockBadge) {
   return mainWindow;
 }
 
-ipcMain.on('cancelNewWindowOverride', () => {
+ipcMain.on("cancelNewWindowOverride", () => {
   const allWindows = BrowserWindow.getAllWindows();
-  allWindows.forEach((window) => {
+  allWindows.forEach(window => {
     // eslint-disable-next-line no-param-reassign
     window.useDefaultWindowBehaviour = false;
   });

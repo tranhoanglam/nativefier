@@ -51,6 +51,7 @@
     "hasbin": "^1.2.3",
     "lodash": "^4.17.5",
     "loglevel": "^1.6.1",
+    "macaddress": "^0.2.8",
     "ncp": "^2.0.0",
     "page-icon": "^0.3.0",
     "progress": "^2.0.0",
